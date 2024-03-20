@@ -1,56 +1,87 @@
 import socket
-from cryptography.fernet import Fernet
-from base64 import urlsafe_b64encode
+import select
 
-from util import generate_key, format_key
+HEADER_LENGTH = 10
 
-SERVER_HOST = '0.0.0.0'
-SERVER_PORT = 6969
+IP = "0.0.0.0"
+PORT = 8000
 
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def main():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((SERVER_HOST, SERVER_PORT))
-    sock.listen(5)
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    print(f'Running in {SERVER_HOST}:{SERVER_PORT}\n')
-    print('- Wait connection...')
+server_socket.bind((IP, PORT))
 
-    client, __ = sock.accept()
-    print('- Connected, performing key exchange...')
+server_socket.listen()
 
-    # keys received and generated
-    common = int(client.recv(1024).decode())
-    secret = generate_key()
-    public = common + secret
+sockets_list = [server_socket]
 
-    # sending "public" key and waiting for peer's public key
-    client.send(str(public).encode())
-    public_peer = int(client.recv(1024).decode())
-    message_secret = public_peer + secret
+clients = {}
 
-    print(f'- Encrypt key is: {format_key(message_secret)}\n')
+print(f'Listening for connections on {IP}:{PORT}...')
 
-    key_bytes = message_secret.to_bytes(32, byteorder='little')
-    fernet = Fernet(urlsafe_b64encode(key_bytes))
-
-    print('=' * 20)
+def receive_message(client_socket):
 
     try:
-        while True:            
-            # wait response
-            client_msg = client.recv(1024)
-            client_msg_decrypted = fernet.decrypt(client_msg)
-            print(f'client> {client_msg_decrypted.decode()}')
+        message_header = client_socket.recv(HEADER_LENGTH)
 
-            message = input('message> ').strip()
-            encrypted_msg = fernet.encrypt(message.encode())
-            client.send(encrypted_msg)
-            print('...')
-    except KeyboardInterrupt:
-        print('Bye.')
-        sock.close()
+        if not len(message_header):
+            return False
 
+        message_length = int(message_header.decode('utf-8').strip())
 
-main()
+        return {
+            'header': message_header, 
+            'data': client_socket.recv(message_length)
+        }
+    except:
+
+        return False
+
+while True:
+
+    read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
+
+    for notified_socket in read_sockets:
+
+        if notified_socket == server_socket:
+
+            client_socket, client_address = server_socket.accept()
+
+            user = receive_message(client_socket)
+
+            if user is False:
+                continue
+
+            sockets_list.append(client_socket)
+            clients[client_socket] = user
+
+            print('Accepted new connection from {}:{}, username: {}'.format(*client_address, user['data'].decode('utf-8')))
+        else:
+
+            message = receive_message(notified_socket)
+
+            if message is False:
+                print('Closed connection from: {}'.format(clients[notified_socket]['data'].decode('utf-8')))
+
+                sockets_list.remove(notified_socket)
+
+                del clients[notified_socket]
+
+                continue
+
+            user = clients[notified_socket]
+
+            print(f'Received message from {user["data"].decode("utf-8")}: {message["data"].decode("utf-8")}')
+
+            for client_socket in clients:
+
+                if client_socket != notified_socket:
+
+                    client_socket.send(user['header'] + user['data'] + message['header'] + message['data'])
+
+    for notified_socket in exception_sockets:
+
+        sockets_list.remove(notified_socket)
+
+        del clients[notified_socket]
