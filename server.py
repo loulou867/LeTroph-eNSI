@@ -1,87 +1,82 @@
+#we need a server sys and a client sys 
+
+#import required stuffs which wil be sockets and threadinng
+#connection
+#starting the server
+#adding lists -- which is client (leaving that empty so that they can add their name after joining) --- mr.robot style  ;)
+#methods required for the chat  -- Ill combine all methods with a main method
+##definig main receive functions -- Broadcast, handler, receiving and listining function
+
+
 import socket
-import select
+import threading
 
-HEADER_LENGTH = 10
 
-IP = "0.0.0.0"
-PORT = 8000
+# Connection Data  
+#Port is confidential thing
+host = '0.0.0.0'                                                 #IP of your host
+port = 12345                                                       #Dont take reserved ports
 
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Starting Server
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)         #Internet socket
+server.bind((host, port))                                          #Server is binded to local host and a port  
+server.listen()                                                    #Server is set to listining mode
 
-server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# Lists For Clients and Their Nicknames
+clients = [] 
+nicknames = []
 
-server_socket.bind((IP, PORT))
+# Sending Messages To All Connected Clients
+def broadcast(message): 
+    for client in clients:
+        client.send(message)                                        #Getting all the clients and sending msg that new one joined to the admin
 
-server_socket.listen()
+# Handling Messages From Clients
+def handle(client):
+    while True:
+        try:
+            # Broadcasting Messages
+            message = client.recv(1024)                      
+            broadcast(message)                                      #After receiving we are broadcasting to other
+        except:
+            # Removing And Closing Clients
+            index = clients.index(client)        
+            clients.remove(client)       
+            client.close()
+            nickname = nicknames[index]                             #When we remove client we'l also remove nicknamesw with help of index
+            broadcast('{} left!'.format(nickname).encode('ascii'))  
+            nicknames.remove(nickname)
+            break        
 
-sockets_list = [server_socket]
+#These Functions will run later on in a thread so evrything will be running
+#Main method receive to combine all methods
 
-clients = {}
 
-print(f'Listening for connections on {IP}:{PORT}...')
+# Receiving / Listening Function
+def receive():
+    while True:
+        # Accept Connection
+        client, address = server.accept()                          #In server IP wil login so different IP will login with same port on the server IP
+        print("Connected with {}".format(str(address)))            #Waiting for the connection and accepting the connections
 
-def receive_message(client_socket):
+        #Getting nickname by asking --- code word sent the client and the client side accepts the encoded code which is NICK here and send backs the message that he can join
+        #Request And Store Nickname
 
-    try:
-        message_header = client_socket.recv(HEADER_LENGTH)
+        client.send('NICK'.encode('ascii'))                        #Sending in encoded form 
+        nickname = client.recv(1024).decode('ascii')                
+        nicknames.append(nickname)
+        clients.append(client)
 
-        if not len(message_header):
-            return False
+        # Print And Broadcast Nickname  
+        #pritning
+        print("Name is {}".format(nickname))
+        #broadcasting
+        broadcast("{} joined!".format(nickname).encode('ascii'))   #So that every client will know new connection is joined
+        client.send('Connected to server!'.encode('ascii'))        #Connected and can starting
 
-        message_length = int(message_header.decode('utf-8').strip())
+        # Start Handling Thread For Client
+        thread = threading.Thread(target=handle, args=(client,))   #This is because multiple client send multiple messages and so to avoid crashing we are handling with handler
+        thread.start()                                             #To work with threads you need start method or run method
 
-        return {
-            'header': message_header, 
-            'data': client_socket.recv(message_length)
-        }
-    except:
-
-        return False
-
-while True:
-
-    read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
-
-    for notified_socket in read_sockets:
-
-        if notified_socket == server_socket:
-
-            client_socket, client_address = server_socket.accept()
-
-            user = receive_message(client_socket)
-
-            if user is False:
-                continue
-
-            sockets_list.append(client_socket)
-            clients[client_socket] = user
-
-            print('Accepted new connection from {}:{}, username: {}'.format(*client_address, user['data'].decode('utf-8')))
-        else:
-
-            message = receive_message(notified_socket)
-
-            if message is False:
-                print('Closed connection from: {}'.format(clients[notified_socket]['data'].decode('utf-8')))
-
-                sockets_list.remove(notified_socket)
-
-                del clients[notified_socket]
-
-                continue
-
-            user = clients[notified_socket]
-
-            print(f'Received message from {user["data"].decode("utf-8")}: {message["data"].decode("utf-8")}')
-
-            for client_socket in clients:
-
-                if client_socket != notified_socket:
-
-                    client_socket.send(user['header'] + user['data'] + message['header'] + message['data'])
-
-    for notified_socket in exception_sockets:
-
-        sockets_list.remove(notified_socket)
-
-        del clients[notified_socket]
+print("Server is started................,:) ")
+receive()
