@@ -2,7 +2,7 @@
 FROM python:3.11
 
 # Mettre à jour pip
-RUN pip install --upgrade pip
+
 
 # Créer un répertoire de travail dans le conteneur
 WORKDIR /app
