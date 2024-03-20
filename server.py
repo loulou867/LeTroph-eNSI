@@ -29,3 +29,13 @@ def start_http_server():
 # Démarrer le serveur HTTP dans un thread séparé
 http_server_thread = threading.Thread(target=start_http_server)
 http_server_thread.start()
+
+# Fonction pour ajouter les clients HTTP à la liste
+def add_http_client(client):
+    with lock:
+        http_clients.append(client)
+
+# Fonction pour retirer les clients HTTP de la liste
+def remove_http_client(client):
+    with lock:
+        http_clients.remove(client)
