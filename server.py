@@ -1,67 +1,94 @@
 import socket
 import threading
 
-def handle_client(client_socket, client_address):
-    print(f'Accepted connection from {client_address}')
- 
-response = "{client_address} joined the chat!"
- send_message(response)
+# Adresse IP et port du serveur
+IP_SERVER = ""  # Laissez cette chaîne vide pour lier le serveur à toutes les interfaces disponibles
+PORT = 12000
+
+# Création du socket serveur
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Liaison du socket à l'adresse IP et au port spécifiés
+server.bind((IP_SERVER, PORT))
+
+# Nombre maximal de connexions en attente autorisées (backlog)
+server.listen(5)
+
+# Affichage de l'adresse IP et du port du serveur
+if IP_SERVER:
+    print(f"[*] Server running, listening on {IP_SERVER}:{PORT}")
+else:
+    IP_SERVER = socket.gethostbyname(socket.gethostname())
+    print(f"[*] Server running, listening on {IP_SERVER}:{PORT}")
+
+
+# Fonction pour gérer les messages entrants du client
+def handle_received_message(client_socket: socket.socket):
     while True:
-        # Receive data from the client
-        data = client_socket.recv(1024).decode('utf-8')
-        if data:
-            # Process the received message
-            process_message(data.strip())
+        try:
+            # Recevoir le message du client
+            message = client_socket.recv(1024).decode('utf-8')
+            if message:
+                print(f"[Client]: {message}")
+                # Diffuser le message à tous les autres clients
+                broadcast_message(message, client_socket)
+            else:
+                # Fermer la connexion si le message est vide
+                client_socket.close()
+                break
+        except Exception as e:
+            print(f'[!] Error handling message from client: {e}')
+            client_socket.close()
+            break
 
-def process_message(message):
-    print(f'Received: {message}')
-    if message.lower() == 'info':
-        response = "PyTelChat Chat Server 1.0 - github.com/MaxBiz100/PyTelChat"
-        send_message(response)
-         # Add more conditions and responses as needed
-    
-  
-def send_message(message):
+
+# Fonction pour diffuser un message à tous les clients sauf l'expéditeur
+def broadcast_message(message: str, sender_socket: socket.socket):
     for client in clients:
-        client.send(f'Message recvd: {message}\n'.encode('utf-8'))
+        if client != sender_socket:
+            try:
+                client.send(message.encode('utf-8'))
+            except Exception as e:
+                print(f'[!] Error broadcasting message to client: {e}')
+                client.close()
+                clients.remove(client)
 
-# Create a socket object
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Define the server address and port
-server_address = ('0.0.0.0', 5212)  # Listen on all available interfaces
-
-# Bind the socket to the server address and port
-server_socket.bind(server_address)
-
-# Listen for incoming connections
-server_socket.listen(5)
-print('Server is running and listening for incoming connections...')
-
-# Maintain a list of connected clients
+# Liste pour stocker les connexions des clients
 clients = []
 
-try:
+# Fonction pour gérer les connexions des clients
+def handle_client_connection():
     while True:
-        # Accept a new connection
-        client_socket, client_address = server_socket.accept()
-        clients.append(client_socket)
+        try:
+            # Accepter une nouvelle connexion du client
+            client_socket, client_address = server.accept()
+            print(f"[*] Accepted connection from: {client_address[0]}:{client_address[1]}")
+            # Ajouter le client à la liste des clients connectés
+            clients.append(client_socket)
+            # Démarrer un thread pour gérer les messages du client
+            threading.Thread(target=handle_received_message, args=(client_socket,)).start()
+        except Exception as e:
+            print(f'[!] Error accepting client connection: {e}')
+            break
 
-        # Create a thread to handle client connection
-        client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
-        client_thread.start()
 
-        # Send a welcome message to the client
-        welcome_message = "Welcome to the chat!"
-        client_socket.send(welcome_message.encode('utf-8'))
+# Fonction pour démarrer le serveur
+def start_server():
+    try:
+        while True:
+            # Gérer les connexions des clients
+            handle_client_connection()
+    except KeyboardInterrupt:
+        print("[*] Server stopped.")
+    finally:
+        # Fermer tous les sockets clients restants
+        for client in clients:
+            client.close()
+        # Fermer le socket serveur
+        server.close()
 
-except KeyboardInterrupt:
-    print('Server error 1. Server terminated.')
 
-finally:
-    # Close all client connections
-    for client in clients:
-        client.close()
-
-    # Close the server socket
-    server_socket.close()
+# Démarrer le serveur dans un thread séparé
+server_thread = threading.Thread(target=start_server)
+server_thread.start()
