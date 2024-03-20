@@ -3,9 +3,8 @@ import socketserver
 import threading
 import urllib.parse
 
-# Définir le port sur lequel écouter (443 pour HTTP, 6969 pour le client Python)
+# Définir le port sur lequel écouter (443 pour HTTP)
 HTTP_PORT = 443
-PYTHON_PORT = 6969
 
 # Liste pour stocker les messages
 messages = []
@@ -44,9 +43,9 @@ class ChatRoomHandler(http.server.SimpleHTTPRequestHandler):
         message = post_data['message'][0]
         # Ajouter le message à la liste des messages
         messages.append(message)
-        # Envoyer le message à tous les autres clients Python
-        for client_socket in python_clients:
-            client_socket.sendall(message.encode("utf-8"))
+        # Envoyer le message à tous les autres clients
+        for sock in python_clients:
+            sock.sendall(message.encode("utf-8"))
         # Rediriger vers la page principale du chat room
         self.send_response(303)
         self.send_header('Location', '/')
@@ -63,15 +62,13 @@ def handle_python_client(client_socket):
             message = client_socket.recv(1024).decode("utf-8")
             if not message:
                 break
-            print("Received message from Python client:", message)
-            # Ajouter le message à la liste des messages
-            messages.append(message)
-            # Envoyer le message à tous les autres clients Python
-            for socket in python_clients:
-                if socket != client_socket:
-                    socket.sendall(message.encode("utf-8"))
+            print("Received message from client:", message)
+            # Envoyer le message à tous les autres clients
+            for sock in python_clients:
+                if sock != client_socket:
+                    sock.sendall(message.encode("utf-8"))
         except Exception as e:
-            print("Error handling Python client:", e)
+            print("Error handling client:", e)
             break
     python_clients.remove(client_socket)
     client_socket.close()
@@ -84,12 +81,11 @@ def start_http_server():
 
 # Fonction pour démarrer le serveur Python
 def start_python_server():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-        server_socket.bind(("", PYTHON_PORT))
-        server_socket.listen()
+    PYTHON_PORT = 6969  # Définir le port pour le serveur Python
+    with socketserver.TCPServer(("0.0.0.0", PYTHON_PORT), socketserver.BaseRequestHandler) as python_server:
         print("Python Server is listening on port", PYTHON_PORT)
         while True:
-            client_socket, _ = server_socket.accept()
+            client_socket, _ = python_server.accept()
             client_thread = threading.Thread(target=handle_python_client, args=(client_socket,))
             client_thread.start()
 
