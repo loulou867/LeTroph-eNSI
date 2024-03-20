@@ -3,7 +3,7 @@ import threading
 
 # Host and port
 HOST = '0.0.0.0'
-PORT = 6969
+PORT = 443
 
 # Create a socket object
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
