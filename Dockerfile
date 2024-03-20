@@ -7,7 +7,7 @@ FROM python:3.11
 # Créer un répertoire de travail dans le conteneur
 WORKDIR /app
 
-# Copier le fichier server.py depuis le répertoire local vers le conteneur
+# Copier le fichier server.py depuisle répertoire local vers le conteneur
 COPY server.py /app/
 
 # Exposer le port 8080
