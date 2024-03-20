@@ -2,7 +2,7 @@ import socket
 import threading
 
 # Adresse IP et ports du serveur
-IP_SERVER = ""  # Laissez cette chaîne vide pour lier le serveur à toutes les interfaces disponibles
+IP_SERVER = "0.0.0.0"  # Laissez cette chaîne vide pour lier le serveur à toutes les interfaces disponibles
 PORT_HTTPS = 443
 PORT_OTHER = 12000
 
