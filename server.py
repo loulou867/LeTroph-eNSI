@@ -2,9 +2,11 @@ import http.server
 import socketserver
 import threading
 import urllib.parse
+import socket
 
-# Définir le port sur lequel écouter (443)
-PORT = 443
+# Définir le port sur lequel écouter (443 pour HTTP, 6969 pour le client Python)
+HTTP_PORT = 443
+PYTHON_PORT = 6969
 
 # Liste pour stocker les messages
 messages = []
@@ -49,11 +51,39 @@ class ChatRoomHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
 # Fonction pour démarrer le serveur HTTP
-def start_server():
-    with socketserver.TCPServer(("", PORT), ChatRoomHandler) as httpd:
-        print("Server is listening on port", PORT)
+def start_http_server():
+    with socketserver.TCPServer(("", HTTP_PORT), ChatRoomHandler) as httpd:
+        print("HTTP Server is listening on port", HTTP_PORT)
         httpd.serve_forever()
 
-# Démarrer le serveur dans un thread séparé
-server_thread = threading.Thread(target=start_server)
-server_thread.start()
+# Fonction pour gérer les connexions des clients Python
+def handle_python_client(client_socket):
+    while True:
+        try:
+            message = client_socket.recv(1024).decode("utf-8")
+            if not message:
+                break
+            print("Received message from Python client:", message)
+            messages.append(message)
+        except Exception as e:
+            print("Error handling Python client:", e)
+            break
+    client_socket.close()
+
+# Fonction pour démarrer le serveur Python
+def start_python_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind(("", PYTHON_PORT))
+        server_socket.listen()
+        print("Python Server is listening on port", PYTHON_PORT)
+        while True:
+            client_socket, _ = server_socket.accept()
+            client_thread = threading.Thread(target=handle_python_client, args=(client_socket,))
+            client_thread.start()
+
+# Démarrer les serveurs dans des threads séparés
+http_server_thread = threading.Thread(target=start_http_server)
+http_server_thread.start()
+
+python_server_thread = threading.Thread(target=start_python_server)
+python_server_thread.start()
