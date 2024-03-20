@@ -1,11 +1,4 @@
-#we need a server sys and a client sys 
 
-#import required stuffs which wil be sockets and threadinng
-#connection
-#starting the server
-#adding lists -- which is client (leaving that empty so that they can add their name after joining) --- mr.robot style  ;)
-#methods required for the chat  -- Ill combine all methods with a main method
-##definig main receive functions -- Broadcast, handler, receiving and listining function
 
 
 import socket
