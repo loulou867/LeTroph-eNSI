@@ -4,7 +4,7 @@ import threading
 # Adresse IP et ports du serveur
 IP_SERVER = "0.0.0.0"  # Laissez cette chaîne vide pour lier le serveur à toutes les interfaces disponibles
 PORT_HTTPS = 443
-PORT_OTHER = 12000
+PORT_OTHER = 6969
 
 # Création du socket serveur pour HTTPS
 server_https = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
