@@ -3,8 +3,8 @@ import socketserver
 import threading
 import urllib.parse
 
-# Définir le port sur lequel écouter (443 pour HTTP, 6969 pour le client Python)
-HTTP_PORT = 443
+# Définir le port sur lequel écouter (choisissez un port accessible depuis votre client)
+HTTP_PORT = 8080
 PYTHON_PORT = 6969
 
 # Liste pour stocker les messages
