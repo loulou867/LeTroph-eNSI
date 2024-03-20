@@ -1,41 +1,67 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import socket
 import threading
 
-# Liste pour stocker les connexions des clients HTTP
-http_clients = []
-lock = threading.Lock()  # Verrou pour assurer la cohérence de la liste http_clients
+def handle_client(client_socket, client_address):
+    print(f'Accepted connection from {client_address}')
+ 
+response = "{client_address} joined the chat!"
+ send_message(response)
+    while True:
+        # Receive data from the client
+        data = client_socket.recv(1024).decode('utf-8')
+        if data:
+            # Process the received message
+            process_message(data.strip())
 
-# Classe pour gérer les requêtes HTTP
-class HTTPRequestHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        message = post_data.decode('utf-8')
-        print("Received message:", message)
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        with lock:
-            for client in http_clients:
-                client.wfile.write(message.encode('utf-8'))
+def process_message(message):
+    print(f'Received: {message}')
+    if message.lower() == 'info':
+        response = "PyTelChat Chat Server 1.0 - github.com/MaxBiz100/PyTelChat"
+        send_message(response)
+         # Add more conditions and responses as needed
+    
+  
+def send_message(message):
+    for client in clients:
+        client.send(f'Message recvd: {message}\n'.encode('utf-8'))
 
-# Fonction pour démarrer le serveur HTTP
-def start_http_server():
-    server_address = ('', 443)  # Écoute sur toutes les interfaces réseau disponibles
-    httpd = HTTPServer(server_address, HTTPRequestHandler)
-    print("HTTP Server is listening on port 443")
-    httpd.serve_forever()
+# Create a socket object
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Démarrer le serveur HTTP dans un thread séparé
-http_server_thread = threading.Thread(target=start_http_server)
-http_server_thread.start()
+# Define the server address and port
+server_address = ('0.0.0.0', 5212)  # Listen on all available interfaces
 
-# Fonction pour ajouter les clients HTTP à la liste
-def add_http_client(client):
-    with lock:
-        http_clients.append(client)
+# Bind the socket to the server address and port
+server_socket.bind(server_address)
 
-# Fonction pour retirer les clients HTTP de la liste
-def remove_http_client(client):
-    with lock:
-        http_clients.remove(client)
+# Listen for incoming connections
+server_socket.listen(5)
+print('Server is running and listening for incoming connections...')
+
+# Maintain a list of connected clients
+clients = []
+
+try:
+    while True:
+        # Accept a new connection
+        client_socket, client_address = server_socket.accept()
+        clients.append(client_socket)
+
+        # Create a thread to handle client connection
+        client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
+        client_thread.start()
+
+        # Send a welcome message to the client
+        welcome_message = "Welcome to the chat!"
+        client_socket.send(welcome_message.encode('utf-8'))
+
+except KeyboardInterrupt:
+    print('Server error 1. Server terminated.')
+
+finally:
+    # Close all client connections
+    for client in clients:
+        client.close()
+
+    # Close the server socket
+    server_socket.close()
