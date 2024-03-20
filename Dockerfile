@@ -1,7 +1,7 @@
 # Utiliser l'image Python officielle comme image de base
 FROM python:3.11
 
-# Mettre à jour pi
+# Mettre à jour p
 
 
 # Créer un répertoire de travail dans le conteneur
