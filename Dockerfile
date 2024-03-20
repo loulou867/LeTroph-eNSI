@@ -4,4 +4,4 @@ RUN pip install --upgrade pip
 # Install the application dependencies
 
 # Define the entry point for the container
-CMD ["python", "server.py"]
+CMD ["python", "server.py", "8080"]
