@@ -1,25 +1,34 @@
 import socket
 import threading
 
-# Adresse IP et port du serveur
+# Adresse IP et ports du serveur
 IP_SERVER = ""  # Laissez cette chaîne vide pour lier le serveur à toutes les interfaces disponibles
-PORT = 443
+PORT_HTTPS = 443
+PORT_OTHER = 12000
 
-# Création du socket serveur
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Création du socket serveur pour HTTPS
+server_https = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_https.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server_https.bind((IP_SERVER, PORT_HTTPS))
 
-# Liaison du socket à l'adresse IP et au port spécifiés
-server.bind((IP_SERVER, PORT))
+# Création du socket serveur pour l'autre port
+server_other = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_other.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server_other.bind((IP_SERVER, PORT_OTHER))
 
 # Nombre maximal de connexions en attente autorisées (backlog)
-server.listen(5)
+server_https.listen(5)
+server_other.listen(5)
 
-# Affichage de l'adresse IP et du port du serveur
+# Affichage de l'adresse IP et des ports du serveur
 if IP_SERVER:
-    print(f"[*] Server running, listening on {IP_SERVER}:{PORT}")
+    print(f"[*] Server running, listening on {IP_SERVER}")
 else:
     IP_SERVER = socket.gethostbyname(socket.gethostname())
-    print(f"[*] Server running, listening on {IP_SERVER}:{PORT}")
+    print(f"[*] Server running, listening on {IP_SERVER}")
+
+print(f"[*] Server listening on HTTPS port {PORT_HTTPS}")
+print(f"[*] Server listening on other port {PORT_OTHER}")
 
 
 # Fonction pour gérer les messages entrants du client
@@ -58,11 +67,11 @@ def broadcast_message(message: str, sender_socket: socket.socket):
 clients = []
 
 # Fonction pour gérer les connexions des clients
-def handle_client_connection():
+def handle_client_connection(server_socket: socket.socket):
     while True:
         try:
             # Accepter une nouvelle connexion du client
-            client_socket, client_address = server.accept()
+            client_socket, client_address = server_socket.accept()
             print(f"[*] Accepted connection from: {client_address[0]}:{client_address[1]}")
             # Ajouter le client à la liste des clients connectés
             clients.append(client_socket)
@@ -74,11 +83,11 @@ def handle_client_connection():
 
 
 # Fonction pour démarrer le serveur
-def start_server():
+def start_server(server_socket: socket.socket):
     try:
         while True:
             # Gérer les connexions des clients
-            handle_client_connection()
+            handle_client_connection(server_socket)
     except KeyboardInterrupt:
         print("[*] Server stopped.")
     finally:
@@ -86,9 +95,9 @@ def start_server():
         for client in clients:
             client.close()
         # Fermer le socket serveur
-        server.close()
+        server_socket.close()
 
 
-# Démarrer le serveur dans un thread séparé
-server_thread = threading.Thread(target=start_server)
-server_thread.start()
+# Démarrer le serveur dans un thread séparé pour chaque port
+threading.Thread(target=start_server, args=(server_https,)).start()
+threading.Thread(target=start_server, args=(server_other,)).start()
