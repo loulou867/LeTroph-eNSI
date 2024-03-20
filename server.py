@@ -3,7 +3,7 @@ import threading
 
 # Adresse IP et port du serveur
 IP_SERVER = ""  # Laissez cette chaîne vide pour lier le serveur à toutes les interfaces disponibles
-PORT = 12000
+PORT = 443
 
 # Création du socket serveur
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
