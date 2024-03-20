@@ -2,7 +2,7 @@
 FROM python:3.8
 
 # Install the application dependencies
-RUN pip install -r requirements.txt
+RUN pip install socket
 
 # Define the entry point for the container
 CMD ["python", "server.py", "runserver"]
