@@ -11,7 +11,7 @@ WORKDIR /app
 COPY server.py /app/
 
 # Exposer le port 8080
-EXPOSE 443
+EXPOSE 8000
 
 # Définir le point d'entrée pour le conteneur
 CMD ["python", "server.py", "8080"]
