@@ -6,7 +6,7 @@ from utility import encodeMessage, decodeMessage
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Mettre l'adresse IP publique du serveur cloud
-IP_ADDR = 'XXX.XXX.XXX.XXX'  # Remplacer XXX.XXX.XXX.XXX par l'adresse IP publique du serveur
+IP_ADDR = '172.17.0.1'  # Remplacer XXX.XXX.XXX.XXX par l'adresse IP publique du serveur
 PORT = 4444
 server.bind((IP_ADDR, PORT))
 server.listen(100)
