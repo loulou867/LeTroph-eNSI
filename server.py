@@ -1,75 +1,60 @@
-
-
-
 import socket
+import sys
 import threading
+from utility import encodeMessage, decodeMessage
 
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Connection Data  
-#Port is confidential thing
-host = '127.0.0.1'                                                 #IP of your host
-port = 12345                                                       #Dont take reserved ports
+# Mettre l'adresse IP publique du serveur cloud
+IP_ADDR = 'XXX.XXX.XXX.XXX'  # Remplacer XXX.XXX.XXX.XXX par l'adresse IP publique du serveur
+PORT = 4444
+server.bind((IP_ADDR, PORT))
+server.listen(100)
+clients = {}  # Mapping des connexions client avec leur nom de client
 
-# Starting Server
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)         #Internet socket
-server.bind((host, port))                                          #Server is binded to local host and a port  
-server.listen()                                                    #Server is set to listining mode
+def main():
+    print('En attente de clients pour se connecter...')
+    while True:
+        conn, addr = server.accept()
+        clients[conn] = ''
+        print('{} client connecté: {}'.format(len(clients), addr[0]))
+        print('{} connecté'.format(addr))
+        t = threading.Thread(target=newClient, args=(conn, addr,))
+        t.start()
+    server.close()
 
-# Lists For Clients and Their Nicknames
-clients = [] 
-nicknames = []
-
-# Sending Messages To All Connected Clients
-def broadcast(message): 
-    for client in clients:
-        client.send(message)                                        #Getting all the clients and sending msg that new one joined to the admin
-
-# Handling Messages From Clients
-def handle(client):
+def newClient(conn, addr):
+    clientName = str(addr[0]) + '.' + str(addr[1])
+    conn.send(encodeMessage('Bienvenue dans le salon de discussion, entrez votre nom : '))
+    clientName = decodeMessage(conn.recv(4096))
+    clients[conn] = clientName
+    broadcast(encodeMessage('{} connecté'.format(clientName)), conn)
     while True:
         try:
-            # Broadcasting Messages
-            message = client.recv(1024)                      
-            broadcast(message)                                      #After receiving we are broadcasting to other
+            msg = conn.recv(4096)
+            if msg:
+                msg = clientName + ': ' + decodeMessage(msg)
+                print(msg)
+                broadcast(encodeMessage(msg), conn)
+            else:
+                removeClient(conn)
+                break
         except:
-            # Removing And Closing Clients
-            index = clients.index(client)        
-            clients.remove(client)       
-            client.close()
-            nickname = nicknames[index]                             #When we remove client we'l also remove nicknamesw with help of index
-            broadcast('{} left!'.format(nickname).encode('ascii'))  
-            nicknames.remove(nickname)
-            break        
+            continue
 
-#These Functions will run later on in a thread so evrything will be running
-#Main method receive to combine all methods
+def broadcast(msg, conn=None):
+    for client in clients:
+        if(client == conn):
+            continue
+        try:
+            client.send(msg)
+        except:
+            removeClient(client)
 
+def removeClient(curClient):
+    if curClient in clients:
+        broadcast(encodeMessage('{} déconnecté'.format(clients[curClient])), curClient)
+        clients.pop(curClient)
 
-# Receiving / Listening Function
-def receive():
-    while True:
-        # Accept Connection
-        client, address = server.accept()                          #In server IP wil login so different IP will login with same port on the server IP
-        print("Connected with {}".format(str(address)))            #Waiting for the connection and accepting the connections
-
-        #Getting nickname by asking --- code word sent the client and the client side accepts the encoded code which is NICK here and send backs the message that he can join
-        #Request And Store Nickname
-
-        client.send('NICK'.encode('ascii'))                        #Sending in encoded form 
-        nickname = client.recv(1024).decode('ascii')                
-        nicknames.append(nickname)
-        clients.append(client)
-
-        # Print And Broadcast Nickname  
-        #pritning
-        print("Name is {}".format(nickname))
-        #broadcasting
-        broadcast("{} joined!".format(nickname).encode('ascii'))   #So that every client will know new connection is joined
-        client.send('Connected to server!'.encode('ascii'))        #Connected and can starting
-
-        # Start Handling Thread For Client
-        thread = threading.Thread(target=handle, args=(client,))   #This is because multiple client send multiple messages and so to avoid crashing we are handling with handler
-        thread.start()                                             #To work with threads you need start method or run method
-
-print("Server is started................,:) ")
-receive()
+if __name__ == '__main__':
+    main()
