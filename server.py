@@ -1,60 +1,62 @@
 import socket
-import sys
 import threading
-from utility import encodeMessage, decodeMessage
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Données de connexion
+hôte = '127.0.0.1'  # IP de votre hôte
+port = 12345  # Ne pas utiliser de ports réservés
 
-# Mettre l'adresse IP publique du serveur cloud
-IP_ADDR = '172.17.0.1'  # Remplacer XXX.XXX.XXX.XXX par l'adresse IP publique du serveur
-PORT = 4444
-server.bind((IP_ADDR, PORT))
-server.listen(100)
-clients = {}  # Mapping des connexions client avec leur nom de client
+# Démarrage du serveur
+serveur = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Socket Internet
+serveur.bind((hôte, port))  # Le serveur est lié à l'hôte local et à un port
+serveur.listen()  # Le serveur est en mode écoute
 
-def main():
-    print('En attente de clients pour se connecter...')
-    while True:
-        conn, addr = server.accept()
-        clients[conn] = ''
-        print('{} client connecté: {}'.format(len(clients), addr[0]))
-        print('{} connecté'.format(addr))
-        t = threading.Thread(target=newClient, args=(conn, addr,))
-        t.start()
-    server.close()
+# Listes des clients et de leurs surnoms
+clients = []
+surnoms = []
 
-def newClient(conn, addr):
-    clientName = str(addr[0]) + '.' + str(addr[1])
-    conn.send(encodeMessage('Bienvenue dans le salon de discussion, entrez votre nom : '))
-    clientName = decodeMessage(conn.recv(4096))
-    clients[conn] = clientName
-    broadcast(encodeMessage('{} connecté'.format(clientName)), conn)
-    while True:
-        try:
-            msg = conn.recv(4096)
-            if msg:
-                msg = clientName + ': ' + decodeMessage(msg)
-                print(msg)
-                broadcast(encodeMessage(msg), conn)
-            else:
-                removeClient(conn)
-                break
-        except:
-            continue
-
-def broadcast(msg, conn=None):
+# Envoi de messages à tous les clients connectés
+def diffuser(message):
     for client in clients:
-        if(client == conn):
-            continue
+        client.send(message)
+
+# Gestion des messages des clients
+def gérer(client):
+    while True:
         try:
-            client.send(msg)
+            # Diffusion des messages
+            message = client.recv(1024)
+            diffuser(message)
         except:
-            removeClient(client)
+            # Suppression et fermeture des clients
+            index = clients.index(client)
+            clients.remove(client)
+            client.close()
+            surnom = surnoms[index]
+            diffuser('{} est parti!'.format(surnom).encode('ascii'))
+            surnoms.remove(surnom)
+            break
 
-def removeClient(curClient):
-    if curClient in clients:
-        broadcast(encodeMessage('{} déconnecté'.format(clients[curClient])), curClient)
-        clients.pop(curClient)
+# Fonction de réception/écoute
+def recevoir():
+    while True:
+        # Accepter la connexion
+        client, adresse = serveur.accept()
+        print("Connecté avec {}".format(str(adresse)))
 
-if __name__ == '__main__':
-    main()
+        # Demander et stocker le surnom
+        client.send('NICK'.encode('ascii'))
+        surnom = client.recv(1024).decode('ascii')
+        surnoms.append(surnom)
+        clients.append(client)
+
+        # Afficher et diffuser le surnom
+        print("Le nom est {}".format(surnom))
+        diffuser("{} a rejoint!".format(surnom).encode('ascii'))
+        client.send('Connecté au serveur!'.encode('ascii'))
+
+        # Démarrer le thread de gestion pour le client
+        thread = threading.Thread(target=gérer, args=(client,))
+        thread.start()
+
+print("Le serveur est démarré................,:)")
+recevoir()
